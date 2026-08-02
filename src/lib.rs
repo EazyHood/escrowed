@@ -16,6 +16,8 @@
 //! after a refund can be made to work. Those are cheap to test here and
 //! expensive to test through a validator.
 
+pub mod decode;
+
 /// Who is asking for a transition. The program derives this from signatures;
 /// the state machine only needs to know which role it is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

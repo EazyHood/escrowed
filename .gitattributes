@@ -1,0 +1,5 @@
+# Normalise to LF in the repository. Rust sources and Cargo.lock are compared
+# and patched across platforms; a checkout that flips them to CRLF produces
+# diffs that are entirely line endings, and hides the real change underneath.
+* text=auto eol=lf
+*.png binary

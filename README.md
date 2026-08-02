@@ -51,17 +51,32 @@ cargo test
 ```
 
 ```
-running 13 tests
+running 20 tests
 test tests::a_stranger_cannot_award ... ok
 test tests::awarding_twice_pays_once ... ok
+test tests::refunding_twice_pays_once ... ok
 test tests::refunding_before_the_deadline_is_refused ... ok
 test tests::refunding_after_an_award_is_refused ... ok
 test tests::awarding_after_a_refund_is_refused ... ok
 test tests::the_sponsor_cannot_award_themselves ... ok
 test tests::funds_leave_at_most_once_under_any_ordering ... ok
+test decode::tests::rejects_an_account_belonging_to_another_program ... ok
+test decode::tests::a_zero_amount_is_never_reported_as_funded ... ok
+test decode::tests::extra_trailing_bytes_do_not_shift_the_fields ... ok
 ...
-test result: ok. 13 passed; 0 failed
+test result: ok. 20 passed; 0 failed
+
+running 5 tests
+test tests::base64_round_trips_known_vectors ... ok
+test tests::rejects_a_discriminator_of_the_wrong_length ... ok
+...
+test result: ok. 5 passed; 0 failed
 ```
+
+**25 in total** — 20 over the state machine and the account decoder, 5 over the
+`verify` binary's own parsing. The suite runs with no network and no validator:
+every rule that decides whether funds move lives in a crate with no Solana types
+in it, so the refusals above are checked by `cargo test` rather than promised.
 
 The last one is the property that matters: it runs **every ordering** of award
 and refund calls against a fresh escrow and asserts that at most one payout is

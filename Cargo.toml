@@ -6,3 +6,4 @@ license = "Apache-2.0"
 description = "State machine for the Escrowed bounty escrow program. Pure logic, no Solana runtime, so every transition is testable with cargo test."
 
 [dependencies]
+ureq = { version = "2", default-features = false, features = ["tls"] }

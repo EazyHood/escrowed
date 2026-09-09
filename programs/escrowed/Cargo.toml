@@ -18,6 +18,7 @@ idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
 anchor-lang = "0.31"
-escrowed-core = { path = "../.." }
+# `default-features = false` keeps the HTTP client out of the on-chain build.
+escrowed-core = { path = "../..", default-features = false }
 
 [workspace]

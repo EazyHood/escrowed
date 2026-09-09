@@ -12,17 +12,23 @@
 //! offset  size  field
 //!      0     8  anchor discriminator
 //!      8    32  sponsor pubkey
-//!     40     8  amount (u64 LE)
-//!     48     8  deadline (i64 LE)
-//!     56     1  status (0 funded, 1 awarded, 2 refunded)
-//!     57    32  winner pubkey (all-zero until awarded)
-//!     89     1  bump
+//!     40    32  bounty_id (sha256 of the listing URL)
+//!     72     8  amount (u64 LE)
+//!     80     8  deadline (i64 LE)
+//!     88     1  status (0 funded, 1 awarded, 2 refunded)
+//!     89    32  winner pubkey (all-zero until awarded)
+//!    121     1  bump
 //! ```
+//!
+//! The program's `EscrowAccount::SPACE` and `ACCOUNT_LEN` here are two spellings
+//! of one layout, and they are asserted equal by a test in the program crate. A
+//! decoder that silently reads a stale layout is worse than one that refuses:
+//! it reports a confident, wrong answer about whether money is locked.
 
 use crate::Status;
 
 pub const DISCRIMINATOR_LEN: usize = 8;
-pub const ACCOUNT_LEN: usize = 90;
+pub const ACCOUNT_LEN: usize = 122;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DecodeError {
@@ -39,6 +45,9 @@ pub enum DecodeError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodedEscrow {
     pub sponsor: [u8; 32],
+    /// Which bounty this escrow backs. A verifier hashes the listing URL and
+    /// compares, so an escrow cannot be waved at a listing it does not fund.
+    pub bounty_id: [u8; 32],
     pub amount: u64,
     pub deadline: i64,
     pub status: Status,
@@ -72,10 +81,13 @@ pub fn decode_escrow(
     let mut sponsor = [0u8; 32];
     sponsor.copy_from_slice(&data[8..40]);
 
-    let amount = u64::from_le_bytes(data[40..48].try_into().expect("8 bytes"));
-    let deadline = i64::from_le_bytes(data[48..56].try_into().expect("8 bytes"));
+    let mut bounty_id = [0u8; 32];
+    bounty_id.copy_from_slice(&data[40..72]);
 
-    let status = match data[56] {
+    let amount = u64::from_le_bytes(data[72..80].try_into().expect("8 bytes"));
+    let deadline = i64::from_le_bytes(data[80..88].try_into().expect("8 bytes"));
+
+    let status = match data[88] {
         0 => Status::Funded,
         1 => Status::Awarded,
         2 => Status::Refunded,
@@ -83,18 +95,19 @@ pub fn decode_escrow(
     };
 
     let mut winner_raw = [0u8; 32];
-    winner_raw.copy_from_slice(&data[57..89]);
+    winner_raw.copy_from_slice(&data[89..121]);
     // The program writes an all-zero pubkey until an award happens, so that is
     // "no winner" rather than a winner whose key happens to be zero.
     let winner = if winner_raw == [0u8; 32] { None } else { Some(winner_raw) };
 
     Ok(DecodedEscrow {
         sponsor,
+        bounty_id,
         amount,
         deadline,
         status,
         winner,
-        bump: data[89],
+        bump: data[121],
     })
 }
 
@@ -105,12 +118,14 @@ mod tests {
     const DISC: [u8; 8] = [11, 22, 33, 44, 55, 66, 77, 88];
     const SPONSOR: [u8; 32] = [7u8; 32];
     const WINNER: [u8; 32] = [9u8; 32];
+    const BOUNTY: [u8; 32] = [3u8; 32];
 
     /// Build account bytes the way the program would write them.
     fn encode(amount: u64, deadline: i64, status: u8, winner: [u8; 32], disc: [u8; 8]) -> Vec<u8> {
         let mut v = Vec::with_capacity(ACCOUNT_LEN);
         v.extend_from_slice(&disc);
         v.extend_from_slice(&SPONSOR);
+        v.extend_from_slice(&BOUNTY);
         v.extend_from_slice(&amount.to_le_bytes());
         v.extend_from_slice(&deadline.to_le_bytes());
         v.push(status);
@@ -124,6 +139,7 @@ mod tests {
         let raw = encode(1_500_000, 1_900_000_000, 0, [0u8; 32], DISC);
         let e = decode_escrow(&raw, &DISC).expect("decodes");
         assert_eq!(e.sponsor, SPONSOR);
+        assert_eq!(e.bounty_id, BOUNTY);
         assert_eq!(e.amount, 1_500_000);
         assert_eq!(e.deadline, 1_900_000_000);
         assert_eq!(e.status, Status::Funded);
@@ -155,7 +171,7 @@ mod tests {
     #[test]
     fn rejects_a_truncated_account() {
         let raw = encode(1, 2, 0, [0u8; 32], DISC);
-        for cut in [0usize, 8, 40, ACCOUNT_LEN - 1] {
+        for cut in [0usize, 8, 40, 72, 88, ACCOUNT_LEN - 1] {
             assert_eq!(
                 decode_escrow(&raw[..cut], &DISC),
                 Err(DecodeError::TooShort { got: cut }),
@@ -178,6 +194,25 @@ mod tests {
         let e = decode_escrow(&raw, &DISC).expect("decodes");
         assert_eq!(e.status, Status::Funded);
         assert!(!e.is_funded());
+    }
+
+    #[test]
+    fn the_test_encoder_agrees_with_the_declared_length() {
+        // Guards the tests themselves: if `encode` and `ACCOUNT_LEN` drift, every
+        // other test here would still pass while decoding a layout nothing writes.
+        assert_eq!(encode(1, 2, 0, [0u8; 32], DISC).len(), ACCOUNT_LEN);
+    }
+
+    #[test]
+    fn a_different_bounty_id_is_read_back_as_different() {
+        // The whole point of the field: two escrows from one sponsor must be
+        // distinguishable, which is what the old one-escrow-per-sponsor PDA
+        // could not express.
+        let mut raw = encode(1_000, 1_900_000_000, 0, [0u8; 32], DISC);
+        raw[40..72].copy_from_slice(&[0xEE; 32]);
+        let e = decode_escrow(&raw, &DISC).expect("decodes");
+        assert_eq!(e.bounty_id, [0xEE; 32]);
+        assert_ne!(e.bounty_id, BOUNTY);
     }
 
     #[test]

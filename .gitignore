@@ -1,2 +1,8 @@
 target/
 programs/escrowed/target/
+
+# Anchor
+.anchor
+target
+**/*.rs.bk
+test-ledger

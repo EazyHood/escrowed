@@ -1,0 +1,33 @@
+# Escrowed — Anchor workspace.
+#
+# The program id below is a placeholder. `anchor build` generates the real
+# keypair at target/deploy/escrowed-keypair.json on first build; `anchor keys
+# sync` then writes its pubkey into this file and into declare_id!. Deploying
+# with the placeholder still in place is the classic first-deploy failure:
+# the program lands at an address its own code does not believe in.
+
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+escrowed = "Esc1owedBounty11111111111111111111111111111"
+
+[programs.devnet]
+escrowed = "Esc1owedBounty11111111111111111111111111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+# The state machine and the layout guard run without a validator, which is the
+# point of the core/shell split. Keep them in the workspace test command so a
+# broken layout fails before anything is deployed.
+test = "cargo test --manifest-path Cargo.toml && cargo test --manifest-path programs/escrowed/Cargo.toml"

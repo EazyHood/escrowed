@@ -5,5 +5,21 @@ edition = "2021"
 license = "Apache-2.0"
 description = "State machine for the Escrowed bounty escrow program. Pure logic, no Solana runtime, so every transition is testable with cargo test."
 
+[features]
+# `net` is what pulls in an HTTP client, and it exists so that the on-chain
+# program can depend on this crate with `default-features = false`. Without the
+# split, `ureq` — TLS, sockets, DNS — lands in the dependency graph of a BPF
+# program that has no business making network calls, and the SBF build carries
+# it. Verified before the split: `cargo check` on the program printed
+# "Checking ureq v2.12.1".
+default = ["net"]
+net = ["dep:ureq"]
+
 [dependencies]
-ureq = { version = "2", default-features = false, features = ["tls"] }
+ureq = { version = "2", default-features = false, features = ["tls"], optional = true }
+
+# The verifier talks to an RPC endpoint, so it only exists with `net`.
+[[bin]]
+name = "verify"
+path = "src/bin/verify.rs"
+required-features = ["net"]

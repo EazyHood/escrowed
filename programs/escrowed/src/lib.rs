@@ -20,7 +20,12 @@ pub mod escrowed {
 
     /// Lock `amount` lamports until `deadline`. The bounty is only publishable
     /// once this succeeds — that is the whole guarantee.
-    pub fn create_bounty(ctx: Context<CreateBounty>, amount: u64, deadline: i64) -> Result<()> {
+    pub fn create_bounty(
+        ctx: Context<CreateBounty>,
+        bounty_id: [u8; 32],
+        amount: u64,
+        deadline: i64,
+    ) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         let sponsor = ctx.accounts.sponsor.key();
 
@@ -40,13 +45,14 @@ pub mod escrowed {
 
         let escrow = &mut ctx.accounts.escrow;
         escrow.sponsor = sponsor;
+        escrow.bounty_id = bounty_id;
         escrow.amount = core.amount;
         escrow.deadline = core.deadline;
         escrow.status = Status::Funded;
         escrow.winner = Pubkey::default();
         escrow.bump = ctx.bumps.escrow;
 
-        emit!(BountyCreated { escrow: escrow.key(), sponsor, amount, deadline });
+        emit!(BountyCreated { escrow: escrow.key(), sponsor, bounty_id, amount, deadline });
         Ok(())
     }
 
@@ -103,15 +109,22 @@ pub mod escrowed {
 // ---------------------------------------------------------------- accounts
 
 #[derive(Accounts)]
+#[instruction(bounty_id: [u8; 32])]
 pub struct CreateBounty<'info> {
     #[account(mut)]
     pub sponsor: Signer<'info>,
 
+    /// One escrow per (sponsor, bounty), not one per sponsor. The earlier seeds
+    /// were `[b"escrow", sponsor]`, which gave every sponsor exactly one escrow
+    /// account for life: their second bounty could never be created, because
+    /// `init` would hit an address that already exists. Binding the bounty id
+    /// also makes the escrow address derivable from the listing it belongs to,
+    /// which is what lets a hunter check a link without being handed an address.
     #[account(
         init,
         payer = sponsor,
         space = EscrowAccount::SPACE,
-        seeds = [b"escrow", sponsor.key().as_ref()],
+        seeds = [b"escrow", sponsor.key().as_ref(), bounty_id.as_ref()],
         bump
     )]
     pub escrow: Account<'info, EscrowAccount>,
@@ -127,7 +140,7 @@ pub struct Award<'info> {
 
     #[account(
         mut,
-        seeds = [b"escrow", sponsor.key().as_ref()],
+        seeds = [b"escrow", sponsor.key().as_ref(), escrow.bounty_id.as_ref()],
         bump = escrow.bump,
         has_one = sponsor
     )]
@@ -150,7 +163,7 @@ pub struct Refund<'info> {
 
     #[account(
         mut,
-        seeds = [b"escrow", sponsor.key().as_ref()],
+        seeds = [b"escrow", sponsor.key().as_ref(), escrow.bounty_id.as_ref()],
         bump = escrow.bump,
         has_one = sponsor
     )]
@@ -162,6 +175,10 @@ pub struct Refund<'info> {
 #[account]
 pub struct EscrowAccount {
     pub sponsor: Pubkey,
+    /// Identifies which bounty this escrow backs — in practice the SHA-256 of
+    /// the listing URL. Stored as well as used as a seed, so a verifier reading
+    /// the account can confirm it belongs to the listing being checked.
+    pub bounty_id: [u8; 32],
     pub amount: u64,
     pub deadline: i64,
     pub status: Status,
@@ -170,8 +187,8 @@ pub struct EscrowAccount {
 }
 
 impl EscrowAccount {
-    // discriminator + sponsor + amount + deadline + status + winner + bump
-    pub const SPACE: usize = 8 + 32 + 8 + 8 + 1 + 32 + 1;
+    // discriminator + sponsor + bounty_id + amount + deadline + status + winner + bump
+    pub const SPACE: usize = 8 + 32 + 32 + 8 + 8 + 1 + 32 + 1;
 
     /// Hand the on-chain state to the core, which owns every decision.
     fn to_core(&self) -> CoreEscrow {
@@ -206,6 +223,7 @@ pub enum Status {
 pub struct BountyCreated {
     pub escrow: Pubkey,
     pub sponsor: Pubkey,
+    pub bounty_id: [u8; 32],
     pub amount: u64,
     pub deadline: i64,
 }
@@ -250,5 +268,43 @@ fn map_err(e: CoreError) -> Error {
         CoreError::ZeroAmount => EscrowedError::ZeroAmount.into(),
         CoreError::DeadlineInPast => EscrowedError::DeadlineInPast.into(),
         CoreError::SelfAward => EscrowedError::SelfAward.into(),
+    }
+}
+
+// ---------------------------------------------------------------- layout guard
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The account layout is written here and read in `escrowed_core::decode`.
+    /// Two spellings of one thing drift silently: the day a field is added here
+    /// and not there, `verify` keeps answering — confidently, from the wrong
+    /// offsets — that a bounty is funded. This test is the only thing that makes
+    /// that drift loud.
+    #[test]
+    fn the_decoder_and_the_account_agree_on_the_layout() {
+        assert_eq!(
+            EscrowAccount::SPACE,
+            escrowed_core::decode::ACCOUNT_LEN,
+            "EscrowAccount::SPACE and escrowed_core::decode::ACCOUNT_LEN disagree"
+        );
+    }
+
+    /// A sponsor must be able to fund more than one bounty. The seeds are what
+    /// decide that, so pin them: two different bounty ids under the same sponsor
+    /// have to land on two different addresses.
+    #[test]
+    fn one_sponsor_can_hold_two_different_escrows() {
+        let sponsor = Pubkey::new_unique();
+        let (a, _) = Pubkey::find_program_address(
+            &[b"escrow", sponsor.as_ref(), &[1u8; 32]],
+            &crate::ID,
+        );
+        let (b, _) = Pubkey::find_program_address(
+            &[b"escrow", sponsor.as_ref(), &[2u8; 32]],
+            &crate::ID,
+        );
+        assert_ne!(a, b, "two bounties from one sponsor collided on one address");
     }
 }

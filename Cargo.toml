@@ -15,6 +15,13 @@ description = "State machine for the Escrowed bounty escrow program. Pure logic,
 default = ["net"]
 net = ["dep:ureq"]
 
+# Anchor requires overflow checks on the release profile so an arithmetic
+# overflow aborts the transaction instead of wrapping silently. It costs
+# nothing here — the money math is small — and the on-chain crate enables the
+# same in programs/escrowed/Cargo.toml.
+[profile.release]
+overflow-checks = true
+
 [dependencies]
 ureq = { version = "2", default-features = false, features = ["tls"], optional = true }
 

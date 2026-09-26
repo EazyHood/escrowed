@@ -22,3 +22,9 @@ anchor-lang = "0.31"
 escrowed-core = { path = "../..", default-features = false }
 
 [workspace]
+
+# This crate detaches into its own workspace, so the release profile must be set
+# here for the SBF build. overflow-checks makes an arithmetic overflow abort the
+# instruction rather than wrap — required by Anchor and correct for escrow math.
+[profile.release]
+overflow-checks = true

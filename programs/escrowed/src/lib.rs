@@ -12,7 +12,7 @@
 use anchor_lang::prelude::*;
 use escrowed_core::{Actor, Escrow as CoreEscrow, EscrowError as CoreError, Status as CoreStatus};
 
-declare_id!("Esc1owedBounty11111111111111111111111111111");
+declare_id!("EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE");
 
 #[program]
 pub mod escrowed {

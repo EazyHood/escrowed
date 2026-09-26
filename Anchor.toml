@@ -14,10 +14,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-escrowed = "Esc1owedBounty11111111111111111111111111111"
+escrowed = "EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE"
 
 [programs.devnet]
-escrowed = "Esc1owedBounty11111111111111111111111111111"
+escrowed = "EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE"
 
 [registry]
 url = "https://api.apr.dev"

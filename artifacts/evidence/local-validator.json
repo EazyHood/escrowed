@@ -1,0 +1,210 @@
+{
+  "mode": "local-validator-real-SBF",
+  "startTime": "2026-10-01T15:15:38.911Z",
+  "completedAt": "2026-10-01T15:15:53.970Z",
+  "endpoint": "http://127.0.0.1:8899",
+  "program": "EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE",
+  "rent": 1740000,
+  "cases": [
+    {
+      "name": "fund test wallet GMKBtpneGXcQAWSQ1Vxoi31U9Jpuod6VYGVDBWAfB5jR",
+      "signature": "5PwUjgR9uPkCXJejuGVQgx8XACaPYuaSMWJfYs1eMc4JTZu3Lg7bpjcsa6uUC6ww4FJTtiuFxd9eBm6hqsjpBjgC",
+      "confirmed": true,
+      "expected": "success",
+      "result": null
+    },
+    {
+      "name": "fund test wallet 77Vbix7CgjmVarMkNYUZbPoxci2GwSvmEPYJc8ZVEaTJ",
+      "signature": "ss8bzGwYvLo5wi4fjacgQofdaxHLfAP56vwvSXGpsyz2xFPRTYCRgMcLF8jUESfo63y7sFUfWYq7FsmCcAdgBie",
+      "confirmed": true,
+      "expected": "success",
+      "result": null
+    },
+    {
+      "name": "create funded bounty",
+      "signature": "3167WSzihY45ezH7jeNnL1mgFwYUGnMjkRLhLnSWzLwWnLyVwhu2evb9uFN4gaaWaqxrznhk4Vyrujx9N9K2QPa7",
+      "confirmed": true,
+      "expected": "success",
+      "result": null
+    },
+    {
+      "name": "reject wrong sponsor",
+      "signature": "SVB2y9RJT56mohkM7FnWfE6je2ZL5NGqPfCKzCd4FiRynDvhiQtMCr3iz4xAq8XoEzjN6ma37S4pYLn7xGbDJiu",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 2006
+          }
+        ]
+      }
+    },
+    {
+      "name": "reject sponsor as winner",
+      "signature": "4s3R3GqnALkQfzJpeSMkBemdK66bsproSFARbqgGCntsCsM4jctQhnjSjBrAdsreQ1cq8zfU3SSrLkeKAaQae2gH",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6005
+          }
+        ]
+      }
+    },
+    {
+      "name": "reject escrow as winner",
+      "signature": "4rYu1XpRmNq8BCxrS6NryotB4rLssDmxLGjQcV9qqfsQAep6SCJkPc8PfiUAe94jmdNKxmwLb2kJAHYE3HsGQRNT",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6006
+          }
+        ]
+      }
+    },
+    {
+      "name": "reject early refund",
+      "signature": "22KQXksfpJ18MbCckZaABtgniCDysKv1sS8S38S8k9Wcpue8VtXKMucmxSew5uggG7PxVS9GjmzwyjTuG3GyCx4A",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6002
+          }
+        ]
+      }
+    },
+    {
+      "name": "award valid winner",
+      "signature": "JYRW6qoaxfZaFPEEpYqftpp49Ej19ZV44j4uNygGL6Q5xpmMTvM1ThTRTgPDZuLBLE3BhHQecP5Mt1nY8CbqRNk",
+      "confirmed": true,
+      "expected": "success",
+      "result": null
+    },
+    {
+      "name": "reject second award",
+      "signature": "2qCC5jbzHnMBKDzd9EQM5ixT8tU5jyTvRuqTpmxEjTFzdHRRBauVcHPiM6Rt3Vq5Hkh5aH1gpCjaypRQfAZPUmqV",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6001
+          }
+        ]
+      }
+    },
+    {
+      "name": "reject refund after award",
+      "signature": "5v3zLAUjgnbEC4swk6jNbwHuHPu4cXSYtefbm31S164Uq85EycVmkHJ6kHz7dPQMTKSkTTAmzoWQk4JhWK6HZdbk",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6001
+          }
+        ]
+      }
+    },
+    {
+      "name": "reject zero amount",
+      "signature": "2dhaMKqvyunqwVXFZg3uTcpo7ywCy9BcSoK5zci9gE5VaB2Z8FdqHMGPBFAjhjzPxNseXjf64QjBJKRQGCV3HVjx",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6003
+          }
+        ]
+      }
+    },
+    {
+      "name": "reject expired creation",
+      "signature": "5fa3vFnXLW4U9cedme2bchgbpo7KZs5tLQaBnnssRP4fDg99LNQ2Bf1neDnYgBfG4RxxVPpVoNChd8JohojhqzB7",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6004
+          }
+        ]
+      }
+    },
+    {
+      "name": "create refundable bounty",
+      "signature": "kkaD1AneBMnwhJtzcrjJJndwuWwBoHagJEvwudaPMMdtk8Dv46Pp17vZML9ykCcBhLyzRAyRgDGkofD8RxSsy52",
+      "confirmed": true,
+      "expected": "success",
+      "result": null
+    },
+    {
+      "name": "stranger refunds expired bounty to sponsor",
+      "signature": "5Pjij7U9vbGCYd5Hg9aWvkn2Pjan7Qros4gjatRbJYKbCMdsQAS1WCVioW7q3cdjz7HN713EMTLogERusno6bKuH",
+      "confirmed": true,
+      "expected": "success",
+      "result": null
+    },
+    {
+      "name": "reject repeated refund",
+      "signature": "62ZULyNfe97Lk5mQTTjbatEVuAymuNjnmsxLkguhNQMfwaSnjGzR5YeBDRpaevwaAbbotgJVbn8aTFwZSnVpbm2X",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6001
+          }
+        ]
+      }
+    },
+    {
+      "name": "reject award after refund",
+      "signature": "49NSbwh7V3GAacXbqSxt8dsoeZyhrLbDqyz1JXHLk1Aw2CBo3aoNAVMu4Ro3DnH9pVE7SASB5ck4eVTGwBt5PKGJ",
+      "confirmed": true,
+      "expected": "rejection",
+      "result": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6001
+          }
+        ]
+      }
+    },
+    {
+      "name": "create late-award bounty",
+      "signature": "5w96ScuAFsdra6saHoXdg6eMXUdciab1mzH9vDcr73h9Fip4xcMqbhK2UJZc9ns6EWJZA2CwMvnzXPHA2Qmthqh1",
+      "confirmed": true,
+      "expected": "success",
+      "result": null
+    },
+    {
+      "name": "award remains allowed after deadline until refunded",
+      "signature": "42EbJZ6SgBqXksJMRtBEgKsrZ8hkWWwz1s94cdXLsaygfPFxAcct5V3BWXGiELNbqKDvAPPA63qdEiwGDBkFRHHd",
+      "confirmed": true,
+      "expected": "success",
+      "result": null
+    }
+  ],
+  "limitations": [
+    "Local validator only; these signatures are not devnet or mainnet transactions.",
+    "Ephemeral wallets were generated in memory. No user wallet or private key file was used."
+  ]
+}

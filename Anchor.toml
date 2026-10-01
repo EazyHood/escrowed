@@ -1,10 +1,8 @@
 # Escrowed — Anchor workspace.
 #
-# The program id below is a placeholder. `anchor build` generates the real
-# keypair at target/deploy/escrowed-keypair.json on first build; `anchor keys
-# sync` then writes its pubkey into this file and into declare_id!. Deploying
-# with the placeholder still in place is the classic first-deploy failure:
-# the program lands at an address its own code does not believe in.
+# Pinned devnet program id, also declared in programs/escrowed/src/lib.rs.
+# The matching deployment keypair lives outside this repository. Do not run
+# `anchor keys sync` against an unrelated generated keypair.
 
 [toolchain]
 anchor_version = "0.31.1"

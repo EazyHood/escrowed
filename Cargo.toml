@@ -13,7 +13,7 @@ description = "State machine for the Escrowed bounty escrow program. Pure logic,
 # it. Verified before the split: `cargo check` on the program printed
 # "Checking ureq v2.12.1".
 default = ["net"]
-net = ["dep:ureq"]
+net = ["dep:ureq", "dep:serde_json", "dep:base64", "dep:sha2", "dep:solana-pubkey", "dep:url"]
 
 # Anchor requires overflow checks on the release profile so an arithmetic
 # overflow aborts the transaction instead of wrapping silently. It costs
@@ -24,6 +24,11 @@ overflow-checks = true
 
 [dependencies]
 ureq = { version = "2", default-features = false, features = ["tls"], optional = true }
+serde_json = { version = "1", optional = true }
+base64 = { version = "0.22", optional = true }
+sha2 = { version = "0.10", optional = true }
+solana-pubkey = { version = "2.4", features = ["curve25519"], optional = true }
+url = { version = "2", optional = true }
 
 # The verifier talks to an RPC endpoint, so it only exists with `net`.
 [[bin]]

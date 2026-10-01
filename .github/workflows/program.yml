@@ -1,0 +1,108 @@
+name: Escrowed program evidence
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'programs/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'scripts/chain-*'
+      - 'scripts/chain-idl/**'
+      - '.github/workflows/program.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sbf-and-local-validator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container: solanafoundation/anchor:v0.31.1@sha256:21ab8a16e19df4301a198d7a55ab2988549aa2d996e6b5ad229c1d95b9f2d326
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record build environment
+        run: |
+          mkdir -p artifacts/evidence
+          {
+            date -u
+            git rev-parse HEAD
+            rustc --version
+            cargo --version
+            solana --version
+            anchor --version
+          } > artifacts/evidence/toolchain.txt
+      - name: Build the locked SBF program
+        shell: bash
+        run: |
+          set -o pipefail
+          cd programs/escrowed
+          cargo build-sbf -- --locked 2>&1 | tee ../../artifacts/evidence/build-sbf.log
+      - name: Test the program and generate the IDL
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked --manifest-path programs/escrowed/Cargo.toml 2>&1 | tee artifacts/evidence/program-tests.log
+          cargo run --locked --manifest-path scripts/chain-idl/Cargo.toml -- "$GITHUB_WORKSPACE" 2>&1 | tee artifacts/evidence/idl-build.log
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install the public test client dependencies
+        run: npm ci --prefix web --no-audit --no-fund
+      - name: Execute create, award, refund and rejected transactions locally
+        shell: bash
+        env:
+          ESCROWED_LOCAL_RPC: http://127.0.0.1:8899
+          ESCROWED_NODE_PACKAGE: ${{ github.workspace }}/web/package.json
+          ESCROWED_CHAIN_REPORT: ${{ github.workspace }}/artifacts/evidence/local-validator.json
+        run: |
+          set -o pipefail
+          solana-test-validator \
+            --reset \
+            --ledger /tmp/escrowed-validator \
+            --bpf-program EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE programs/escrowed/target/deploy/escrowed.so \
+            > artifacts/evidence/local-validator.log 2>&1 &
+          VALIDATOR_PID=$!
+          trap 'kill "$VALIDATOR_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -fsS -X POST -H 'Content-Type: application/json' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' \
+              http://127.0.0.1:8899 | grep -q '"ok"'; then
+              break
+            fi
+            sleep 1
+          done
+          node scripts/chain-smoke.mjs 2>&1 | tee artifacts/evidence/chain-smoke.log
+          node scripts/chain-export-local.mjs
+      - name: Hash the public artifacts
+        if: always()
+        shell: bash
+        run: |
+          {
+            git rev-parse HEAD
+            sha256sum programs/escrowed/src/lib.rs programs/escrowed/Cargo.lock
+            test ! -f programs/escrowed/target/deploy/escrowed.so || sha256sum programs/escrowed/target/deploy/escrowed.so
+            test ! -f artifacts/idl/escrowed.json || sha256sum artifacts/idl/escrowed.json
+          } > artifacts/evidence/hashes.txt
+      - name: Save public build and runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: escrowed-program-${{ github.sha }}
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            artifacts/evidence/toolchain.txt
+            artifacts/evidence/build-sbf.log
+            artifacts/evidence/program-tests.log
+            artifacts/evidence/idl-build.log
+            artifacts/evidence/local-validator.json
+            artifacts/evidence/local-transactions.json
+            artifacts/evidence/local-validator.log
+            artifacts/evidence/chain-smoke.log
+            artifacts/evidence/hashes.txt
+            artifacts/idl/escrowed.json
+            programs/escrowed/target/deploy/escrowed.so

@@ -1,0 +1,10 @@
+[package]
+name = "escrowed-export-idl"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anchor-lang-idl = { version = "=0.1.4", features = ["build"] }
+
+[workspace]

@@ -1,103 +1,119 @@
 # Escrowed
 
-**Bounties that prove the money exists before anyone works for free.**
+**Check the prize before you do the work.**
 
-A sponsor locks the prize *before* publishing the bounty. Anyone can then check
-on-chain whether the funds are really there, instead of taking the listing's word
-for it. The sponsor awards a winner; if the deadline passes unawarded, the hunter
-can force a refund.
+Escrowed adds a verifiable funding link to an existing bounty. A sponsor locks
+native SOL against the exact listing URL. A contributor can inspect its owner,
+address, balance, deadline and settlement state without connecting a wallet.
+The listing stays on GitHub, Superteam or another site; there is no marketplace
+to migrate to.
 
-## Why
+**This version is a devnet prototype. Devnet SOL is a free test asset with no
+monetary value. It is not an audited service for real funds.** Deployment status
+and test evidence belong in [`artifacts/`](artifacts/); a successful compilation
+by itself does not mean the program has been deployed.
 
-Hunting funded open-source work for two days produced this:
+## The useful distinction
 
-| repo | advertised | reality |
-|---|---|---|
-| `claude-builders-bounty` | $50–200 per task | **3,431 PRs received, 0 merged** |
-| `xevrion-v2/agent-playground` | $1,000 | 271 stars, **0 merged PRs** |
-| IssueHunt (whole platform) | a bounty marketplace | **18 funded issues**, 16 from 2023–24 |
+A listing can promise a prize. An escrow can show whether that prize is currently
+locked. Those are different statements. Escrowed checks the latter and makes its
+limits visible:
 
-None of that is visible from the listing. You find out after the work is done.
+- The sponsor chooses the recipient. A funded account does not guarantee fair
+  judging, selection or payment to a particular contributor.
+- Anyone may refund an unawarded prize at or after the deadline. **The refund
+  goes back to the sponsor**, never to the caller or a worker.
+- Late awards are allowed. After the deadline, an award and a refund can race;
+  the first successful transaction decides the outcome.
+- The program is upgradeable. Its authority could change the code. This
+  prototype does not offer immutability, insurance or dispute resolution.
+- A URL hash binds exact text, not the website author's identity. Check the
+  sponsor address against a trusted source from that sponsor.
 
-The first design here was to verify *backwards* — join announced winners on
-Superteam Earn against on-chain transfers. Before building it I checked whether
-the data existed. It does not: the public winner records expose `userId`, name
-and photo, and **no wallet address anywhere**. So that plan was dropped.
+## A complete route
 
-That dead end is what produced this one. If the past cannot be verified, make the
-future verifiable.
+1. The sponsor enters a public HTTP(S) listing URL, prize and refund deadline,
+   reviews the transaction, and signs a devnet funding transaction.
+2. The app confirms it and produces a shareable verification link.
+3. A contributor opens the link and reads the live escrow without a wallet.
+4. The sponsor can award to another wallet, or anyone can return an unawarded
+   prize to the sponsor after its deadline. Each escrow settles at most once.
 
-## The shape of it
+One PDA exists per sponsor and exact URL. A settled URL cannot be used again by
+that sponsor; publish a distinct listing for a new bounty. Account rent stays
+in the PDA to retain its history. Unsolicited extra SOL also stays there: this
+version has no sweep or close instruction. Do not send additional funds directly
+to an escrow account.
 
-```
-create_bounty(amount, deadline)   sponsor locks funds in a PDA
-award(winner)                     sponsor releases to the winner
-refund()                          anyone, after the deadline, returns to sponsor
-```
+## Run the web client
 
-The guarantee is the chain itself. There is no server to trust about whether the
-money is there — there is an account with a balance that anyone can read.
+Node.js 22 or newer:
 
-## Where the logic lives
-
-`escrowed-core` holds every rule that decides whether funds move, with no Solana
-types in it. That is on purpose: escrow bugs are not found on the happy path,
-they are found by asking whether you can award twice, refund early, or award
-after a refund. Those questions are cheap to answer with `cargo test` and
-expensive to answer through a validator.
-
-```bash
-cargo test
-```
-
-```
-running 20 tests
-test tests::a_stranger_cannot_award ... ok
-test tests::awarding_twice_pays_once ... ok
-test tests::refunding_twice_pays_once ... ok
-test tests::refunding_before_the_deadline_is_refused ... ok
-test tests::refunding_after_an_award_is_refused ... ok
-test tests::awarding_after_a_refund_is_refused ... ok
-test tests::the_sponsor_cannot_award_themselves ... ok
-test tests::funds_leave_at_most_once_under_any_ordering ... ok
-test decode::tests::rejects_an_account_belonging_to_another_program ... ok
-test decode::tests::a_zero_amount_is_never_reported_as_funded ... ok
-test decode::tests::extra_trailing_bytes_do_not_shift_the_fields ... ok
-...
-test result: ok. 20 passed; 0 failed
-
-running 5 tests
-test tests::base64_round_trips_known_vectors ... ok
-test tests::rejects_a_discriminator_of_the_wrong_length ... ok
-...
-test result: ok. 5 passed; 0 failed
+```sh
+cd web
+npm ci
+npm test
+npm run dev -- --host 127.0.0.1
 ```
 
-**25 in total** — 20 over the state machine and the account decoder, 5 over the
-`verify` binary's own parsing. The suite runs with no network and no validator:
-every rule that decides whether funds move lives in a crate with no Solana types
-in it, so the refusals above are checked by `cargo test` rather than promised.
+The client is restricted to Solana devnet and verifies its genesis hash before
+transaction operations. The public site is built for the `/escrowed/` path on
+GitHub Pages. No server, API key or private key is shipped in its bundle.
 
-The last one is the property that matters: it runs **every ordering** of award
-and refund calls against a fresh escrow and asserts that at most one payout is
-ever produced.
+The public RPC can be slow or rate-limited. A failed lookup is **unverified**,
+not evidence that a bounty is funded or unfunded. The UI provides error recovery
+and labels the network and observed state.
 
-## Two decisions worth arguing with
+## Run the read-only CLI
 
-**Awarding is allowed after the deadline.** A late award is still the sponsor
-honouring the bounty, and refusing it would strand funds whenever judging ran
-long. The refund path — not a deadline on awarding — is what protects the hunter
-from a sponsor who never awards at all.
+```sh
+cargo run --bin verify -- <ESCROW_ADDRESS> <SPONSOR_ADDRESS> <EXACT_LISTING_URL>
+```
 
-**Refund is callable by anyone, not just the sponsor.** The point is that funds
-cannot be held hostage: a sponsor who stops responding cannot leave them locked.
-Since a refund can only ever return money to the sponsor, a third-party caller
-has nothing to gain by triggering it.
+Optional `--rpc URL` changes the read-only endpoint. The default is devnet.
+The URL is trimmed and hashed as exact UTF-8 text; credentials and fragments are
+rejected. Case, query strings and trailing slashes are not silently normalized.
+Use the exact URL in the sponsor's verification link.
 
-## Status
+The verifier checks program ownership, non-executable account status, fixed
+layout, Anchor discriminator, sponsor, URL hash, PDA, bump and whether the live
+balance covers both prize and rent. It reads at `finalized` commitment and reports
+the slot. It never signs transactions or asks for a private key.
 
-The state machine is complete and tested. The Anchor wrapper and devnet
-deployment are next — that is a thin shell that resolves accounts and calls into
-this crate, so the interesting logic is already the part you can run.
+Exit codes: `0` prize currently locked; `1` awarded/refunded; `2` account not
+found; `3` invalid input, inconsistent evidence or RPC error. Code `0` is a funding
+snapshot, not a recommendation to work or a payment guarantee.
 
-Apache-2.0.
+## Build and verify
+
+```sh
+cargo test --locked
+cargo test --locked --no-default-features
+cargo test --locked --manifest-path programs/escrowed/Cargo.toml
+```
+
+The core state-machine tests cover invalid transitions and every ordering of
+award/refund. Host program tests cover layout, serialization, destination alias,
+rent, insufficient balance and arithmetic overflow. Client tests exercise the
+read path and instruction encoding. These checks are complemented by actual SBF
+transactions on a local validator; see [DEPLOY.md](DEPLOY.md) for reproduction
+and recorded execution. Unit tests are not on-chain transaction evidence.
+
+- [`src/`](src/): state machine, account decoder and read-only verifier.
+- [`programs/escrowed/`](programs/escrowed/): Anchor contract.
+- [`web/`](web/): devnet application and reusable chain client.
+- [`scripts/`](scripts/): IDL generation and runtime checks.
+- [`artifacts/idl/`](artifacts/idl/): IDL generated from the Anchor implementation.
+- [Program limits and hardening](programs/escrowed/SECURITY-NOTES.md).
+
+Program ID: `EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE`.
+
+## Provenance
+
+The original Rust state machine, decoder and Anchor wrapper predate October 1,
+2026. The October 1 completion adds the web flow, a stricter verifier, destination
+and balance safeguards, consistent IDL and runtime evidence. Development and
+review use AI assistance. No users, payouts, adoption or security certification
+are claimed from synthetic fixtures or test-network transactions.
+
+Apache-2.0. Financial receipts and grant application data stay outside this repo.

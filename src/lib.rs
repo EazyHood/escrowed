@@ -17,6 +17,8 @@
 //! expensive to test through a validator.
 
 pub mod decode;
+#[cfg(feature = "net")]
+pub mod verification;
 
 /// Who is asking for a transition. The program derives this from signatures;
 /// the state machine only needs to know which role it is.

@@ -6,3 +6,11 @@ programs/escrowed/target/
 target
 **/*.rs.bk
 test-ledger
+**/test-ledger/
+**/node_modules/
+web/dist/
+.env
+.env.*
+**/*-keypair.json
+**/deployer.json
+*.log

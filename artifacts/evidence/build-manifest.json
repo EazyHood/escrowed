@@ -1,0 +1,22 @@
+{
+  "builtAtUtc": "2026-10-01T15:16:59.0905268Z",
+  "image": "solanafoundation/anchor:v0.31.1@sha256:21ab8a16e19df4301a198d7a55ab2988549aa2d996e6b5ad229c1d95b9f2d326",
+  "programAddress": "EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE",
+  "binaryBytes": 219680,
+  "binarySha256": "9bff5f8120bf7dfff93b9472f3ce9cd9ee6e768f66b04a2ba82c05b0deb5da9b",
+  "programSourceSha256": "34a9cba426b449d06559519992ea185dfd11242e0eb9503fe19380edfce7bd30",
+  "programCargoLockSha256": "abe2bdd986bbd244bb4bdc83496b1d09992de5bf880eabcf148000bf0b632540",
+  "coreSourceSha256": "70863090135b7fd10d62f337ad75658374dbf086f467a062ebbdb742ef79e6b6",
+  "idlSha256": "ef86bc94ed4b53c0729fc96c74d13797f714ee43cb6f7760ba51972402d02152",
+  "localValidator": "2.1.0",
+  "hostRust": "1.86.0",
+  "sbfRust": "1.79.0",
+  "sbfPlatformTools": "v1.43",
+  "tests": {
+    "localExpectedRejections": 10,
+    "localConfirmedTransactions": 18,
+    "hostProgram": 9,
+    "localSuccessful": 8
+  },
+  "deployment": "local validator only; public devnet publication separate"
+}

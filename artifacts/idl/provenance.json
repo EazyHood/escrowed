@@ -1,0 +1,11 @@
+{
+  "generatedAtUtc": "2026-10-01T15:05:09.8563698Z",
+  "generator": "anchor-lang-idl 0.1.4 IdlBuilder (compilation)",
+  "programAddress": "EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE",
+  "command": "cargo run --manifest-path scripts/chain-idl/Cargo.toml -- <ABSOLUTE_REPO_PATH>",
+  "sourceRevision": "working tree based on ddf9f28d128d3c94dbc81dc005265777fb850ea7; see final delivery commit",
+  "programSourceSha256": "34a9cba426b449d06559519992ea185dfd11242e0eb9503fe19380edfce7bd30",
+  "programCargoLockSha256": "abe2bdd986bbd244bb4bdc83496b1d09992de5bf880eabcf148000bf0b632540",
+  "idlSha256": "ef86bc94ed4b53c0729fc96c74d13797f714ee43cb6f7760ba51972402d02152",
+  "proves": "IDL generated from Rust via Anchor; does not prove an SBF build or network deployment"
+}

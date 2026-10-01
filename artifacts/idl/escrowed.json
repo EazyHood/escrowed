@@ -1,0 +1,465 @@
+{
+  "address": "EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE",
+  "metadata": {
+    "name": "escrowed",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "award",
+      "docs": [
+        "Release the prize to the winner. Sponsor only, once, and not to",
+        "themselves. Allowed after the deadline on purpose: a late award is still",
+        "the sponsor honouring the bounty."
+      ],
+      "discriminator": [
+        180,
+        74,
+        165,
+        67,
+        179,
+        135,
+        27,
+        202
+      ],
+      "accounts": [
+        {
+          "name": "sponsor",
+          "signer": true,
+          "relations": [
+            "escrow"
+          ]
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "sponsor"
+              },
+              {
+                "kind": "account",
+                "path": "escrow.bounty_id",
+                "account": "EscrowAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "winner",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_bounty",
+      "docs": [
+        "Lock `amount` lamports until `deadline`. The bounty is only publishable",
+        "once this succeeds — that is the whole guarantee."
+      ],
+      "discriminator": [
+        122,
+        90,
+        14,
+        143,
+        8,
+        125,
+        200,
+        2
+      ],
+      "accounts": [
+        {
+          "name": "sponsor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "escrow",
+          "docs": [
+            "One escrow per (sponsor, bounty), not one per sponsor. The earlier seeds",
+            "were `[b\"escrow\", sponsor]`, which gave every sponsor exactly one escrow",
+            "account for life: their second bounty could never be created, because",
+            "`init` would hit an address that already exists. Binding the bounty id",
+            "also makes the escrow address derivable from the listing it belongs to,",
+            "which is what lets a hunter check a link without being handed an address."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "sponsor"
+              },
+              {
+                "kind": "arg",
+                "path": "bounty_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "bounty_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "deadline",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "refund",
+      "docs": [
+        "Return the funds to the sponsor once the deadline has passed unawarded.",
+        "",
+        "Callable by anyone: the money must not be holdable hostage by a sponsor",
+        "who stops responding, and a refund can only ever return it to the",
+        "sponsor, so a third-party caller gains nothing by triggering it."
+      ],
+      "discriminator": [
+        2,
+        96,
+        183,
+        251,
+        63,
+        208,
+        46,
+        46
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Anyone may trigger it; they pay the transaction, not receive the funds."
+          ],
+          "signer": true
+        },
+        {
+          "name": "sponsor",
+          "docs": [
+            "destination — a refund cannot pay anyone but the sponsor."
+          ],
+          "writable": true,
+          "relations": [
+            "escrow"
+          ]
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "sponsor"
+              },
+              {
+                "kind": "account",
+                "path": "escrow.bounty_id",
+                "account": "EscrowAccount"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "EscrowAccount",
+      "discriminator": [
+        36,
+        69,
+        48,
+        18,
+        128,
+        225,
+        125,
+        135
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "BountyAwarded",
+      "discriminator": [
+        230,
+        101,
+        91,
+        225,
+        16,
+        230,
+        193,
+        102
+      ]
+    },
+    {
+      "name": "BountyCreated",
+      "discriminator": [
+        68,
+        252,
+        247,
+        196,
+        154,
+        247,
+        130,
+        49
+      ]
+    },
+    {
+      "name": "BountyRefunded",
+      "discriminator": [
+        158,
+        18,
+        109,
+        41,
+        239,
+        13,
+        79,
+        43
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NotSponsor",
+      "msg": "Only the sponsor can award this bounty"
+    },
+    {
+      "code": 6001,
+      "name": "AlreadySettled",
+      "msg": "This bounty has already been awarded or refunded"
+    },
+    {
+      "code": 6002,
+      "name": "DeadlineNotReached",
+      "msg": "The deadline has not passed yet"
+    },
+    {
+      "code": 6003,
+      "name": "ZeroAmount",
+      "msg": "A bounty must escrow more than zero"
+    },
+    {
+      "code": 6004,
+      "name": "DeadlineInPast",
+      "msg": "The deadline is already in the past"
+    },
+    {
+      "code": 6005,
+      "name": "SelfAward",
+      "msg": "The sponsor cannot award the bounty to themselves"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidRecipient",
+      "msg": "The prize recipient must not be the escrow itself or an executable account"
+    },
+    {
+      "code": 6007,
+      "name": "InsufficientEscrowBalance",
+      "msg": "The escrow cannot pay this prize while preserving its rent reserve"
+    },
+    {
+      "code": 6008,
+      "name": "RecipientBalanceOverflow",
+      "msg": "The recipient balance would overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "BountyAwarded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "winner",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BountyCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "sponsor",
+            "type": "pubkey"
+          },
+          {
+            "name": "bounty_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "deadline",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BountyRefunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "sponsor",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscrowAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sponsor",
+            "type": "pubkey"
+          },
+          {
+            "name": "bounty_id",
+            "docs": [
+              "Identifies which bounty this escrow backs — in practice the SHA-256 of",
+              "the listing URL. Stored as well as used as a seed, so a verifier reading",
+              "the account can confirm it belongs to the listing being checked."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "deadline",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "Status"
+              }
+            }
+          },
+          {
+            "name": "winner",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Status",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Funded"
+          },
+          {
+            "name": "Awarded"
+          },
+          {
+            "name": "Refunded"
+          }
+        ]
+      }
+    }
+  ]
+}

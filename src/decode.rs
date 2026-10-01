@@ -158,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_an_account_belonging_to_another_program() {
+    fn rejects_a_different_account_type_tag() {
         // Same size, same shape, different tag. Without the discriminator check
         // this would decode as a perfectly plausible funded bounty.
         let raw = encode(999_999, 1_900_000_000, 0, [0u8; 32], [1, 2, 3, 4, 5, 6, 7, 8]);

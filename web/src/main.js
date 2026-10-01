@@ -6,6 +6,7 @@ import {
   explorerTransaction, readableError, FieldError,
 } from './lib/chain.js';
 import { IntentGuard } from './lib/intent.js';
+import { SingleFlight } from './lib/single-flight.js';
 
 const connection = createConnection();
 const $ = (selector) => document.querySelector(selector);
@@ -20,6 +21,7 @@ let pending = null;
 let sending = false;
 let lookupVersion = 0;
 const intents = new IntentGuard();
+const lookup = new SingleFlight(renderLookupControls);
 
 document.querySelector('#app').innerHTML = `
   <header class="site-header wrap">
@@ -94,12 +96,9 @@ function notify(message) {
 
 function switchView(view, focus = false) {
   invalidatePreview('The selected workflow changed. Close this preview and review the current action again.');
-  if ($('#verify-submit').disabled) {
+  if (lookup.busy) {
     lookupVersion++;
-    $('#verify-submit').disabled = false;
-    $('#verify-submit').innerHTML = 'Verify backing <span aria-hidden="true">→</span>';
-    $('#verify-submit').removeAttribute('aria-busy');
-    $('#verification-result').innerHTML = '<p class="notice" role="status">Lookup cancelled after switching workflows. Verify again to read the current receipt.</p>';
+    $('#verification-result').innerHTML = '<p class="notice" role="status">The previous lookup will be discarded after switching workflows. Wait for it to finish, then verify the current receipt.</p>';
   }
   for (const element of document.querySelectorAll('.view')) element.hidden = element.id !== `${view}-view`;
   for (const element of document.querySelectorAll('.workspace-nav button')) {
@@ -153,31 +152,37 @@ function renderManage() {
   container.innerHTML = `<div class="settlement-heading"><span class="stamp stamp-neutral">${state.status.toUpperCase()}</span><strong>${formatSol(state.amount)} <small>test SOL</small></strong></div><p class="hint listing-wrap">${escape(state.listing)}</p><dl class="compact-receipt">${addressRow('Sponsor', state.sponsor.toBase58())}${addressRow('Escrow', state.address.toBase58())}</dl>${state.status !== 'Funded' ? `<div class="notice">This escrow is already ${state.status.toLowerCase()}. Its original prize cannot be awarded or refunded again.</div><button class="button button-outline" data-refresh>Refresh receipt</button>` : `<div class="settlement-options"><form id="award-form" novalidate><p class="eyebrow">OPTION A · SPONSOR ONLY</p><h4>Award the prize.</h4><p>Send the full prize to one recipient. This settlement cannot be undone.</p>${!isSponsor ? '<p class="hint">Connect the original sponsor wallet to award this escrow.</p>' : ''}<div class="field"><label for="award-winner">Winner’s public address <span class="required">required</span></label><input id="award-winner" type="text" autocomplete="off" spellcheck="false" maxlength="44" placeholder="Recipient’s Solana address" required aria-describedby="award-winner-error"><p id="award-winner-error" class="field-error" hidden></p></div><div id="award-error" class="notice notice-error" role="alert" hidden></div><button class="button button-primary" type="submit">Review award <span aria-hidden="true">→</span></button></form><div class="refund-section"><p class="eyebrow">OPTION B · AFTER THE DEADLINE</p><h4>Return it to the sponsor.</h4><p>Anyone may trigger the refund after ${date(state.deadline)}. The caller only pays the transaction fee.</p><div id="refund-error" class="notice notice-error" role="alert" hidden></div><button class="button button-outline" id="refund-button">Review refund <span aria-hidden="true">→</span></button><p class="hint">The chain checks its own clock. No funds can be redirected.</p></div></div>`}`;
   $('#award-form')?.addEventListener('submit', reviewAward);
   $('#refund-button')?.addEventListener('click', reviewRefund);
+  renderLookupControls(lookup.busy);
+}
+
+function renderLookupControls(busy) {
+  for (const button of document.querySelectorAll('#verify-submit, [data-example], [data-refresh]')) button.disabled = busy;
+  const button = $('#verify-submit');
+  button.innerHTML = busy ? 'Reading devnet…' : 'Verify backing <span aria-hidden="true">→</span>';
+  if (busy) button.setAttribute('aria-busy', 'true'); else button.removeAttribute('aria-busy');
 }
 
 async function verify(event) {
-  event?.preventDefault(); clearErrors('verify');
-  invalidatePreview('A new verification started. Close this preview and review its fresh receipt before signing.');
-  const version = ++lookupVersion;
-  const button = $('#verify-submit'); button.disabled = true; button.textContent = 'Reading devnet…'; button.setAttribute('aria-busy', 'true');
-  $('#verification-result').innerHTML = '<div class="lookup-loading" role="status"><span class="loading-line"></span>Deriving the escrow address and checking its account…</div>';
-  latest = null;
-  $('#manage-content').innerHTML = '<div class="empty-state"><h4>Verification pending.</h4><p>Complete a successful lookup before settling an escrow.</p><button class="button button-outline" data-view="verify">Return to verification</button></div>';
-  try {
-    const result = await inspectEscrow(connection, $('#verify-listing').value, $('#verify-sponsor').value);
-    if (version !== lookupVersion) return;
-    latest = result; renderReceipt(result);
-  } catch (error) { if (version === lookupVersion) { $('#verification-result').innerHTML = ''; setError('verify', error); } }
-  finally { if (version === lookupVersion) { button.disabled = false; button.innerHTML = 'Verify backing <span aria-hidden="true">→</span>'; button.removeAttribute('aria-busy'); } }
+  event?.preventDefault();
+  return lookup.run(async () => {
+    clearErrors('verify');
+    invalidatePreview('A new verification started. Close this preview and review its fresh receipt before signing.');
+    const version = ++lookupVersion;
+    $('#verification-result').innerHTML = '<div class="lookup-loading" role="status"><span class="loading-line"></span>Deriving the escrow address and checking its account…</div>';
+    latest = null;
+    $('#manage-content').innerHTML = '<div class="empty-state"><h4>Verification pending.</h4><p>Complete a successful lookup before settling an escrow.</p><button class="button button-outline" data-view="verify">Return to verification</button></div>';
+    try {
+      const result = await inspectEscrow(connection, $('#verify-listing').value, $('#verify-sponsor').value);
+      if (version !== lookupVersion) return;
+      latest = result; renderReceipt(result);
+    } catch (error) { if (version === lookupVersion) { $('#verification-result').innerHTML = ''; setError('verify', error); } }
+  });
 }
 $('#verify-form').addEventListener('submit', verify);
 $('#verify-form').addEventListener('input', () => {
-  if (!latest && !$('#verify-submit').disabled) return;
+  if (!latest && !lookup.busy) return;
   lookupVersion++; latest = null;
-  $('#verification-result').innerHTML = '<p class="notice" role="status">Details changed. Verify again to read the receipt for this listing and sponsor.</p>';
-  $('#verify-submit').disabled = false;
-  $('#verify-submit').innerHTML = 'Verify backing <span aria-hidden="true">→</span>';
-  $('#verify-submit').removeAttribute('aria-busy');
+  $('#verification-result').innerHTML = `<p class="notice" role="status">Details changed. ${lookup.busy ? 'Wait for the current lookup to finish, then verify' : 'Verify again'} to read the receipt for this listing and sponsor.</p>`;
   renderManage();
 });
 
@@ -282,6 +287,7 @@ $('#sign-button').addEventListener('click', async () => {
       $('#transaction-status').innerHTML = `${escape(text)}${tx ? `<br><a class="text-link" href="${explorerTransaction(tx)}" target="_blank" rel="noreferrer">Inspect transaction ${arrow}</a>` : ''}`;
     });
     $('#sign-button').hidden = true;
+    await lookup.wait();
     $('#verify-listing').value = current.derived.listing; $('#verify-sponsor').value = current.derived.sponsor.toBase58();
     switchView('verify'); await verify();
     notify('Transaction confirmed. You can inspect its receipt in Solana Explorer.');
@@ -356,7 +362,7 @@ document.addEventListener('click', async event => {
     const link = new URL(import.meta.env.BASE_URL, location.origin); link.searchParams.set('listing', latest.account.listing); link.searchParams.set('sponsor', latest.account.sponsor.toBase58());
     try { await navigator.clipboard.writeText(link.href); notify('Verification link copied.'); } catch { notify('The browser blocked copying. You can share the exact listing and sponsor instead.'); }
   }
-  if (event.target.closest('[data-refresh]')) { switchView('verify'); await verify(); }
+  if (event.target.closest('[data-refresh]') && !lookup.busy) { switchView('verify'); await verify(); }
 });
 
 $('#transaction-dialog').addEventListener('cancel', event => { if (sending) event.preventDefault(); else invalidatePreview(); });
@@ -374,7 +380,8 @@ fetch(`${import.meta.env.BASE_URL}examples.json`, { signal: AbortSignal.timeout(
     if (!examples.length) return;
     $('#examples').hidden = false;
     $('#examples').innerHTML = `<span class="hint">Try a recorded devnet example:</span><div>${examples.map((item, index) => `<button class="example-button" data-example="${index}">${escape(item.label)} <span aria-hidden="true">↗</span></button>`).join('')}</div><p class="hint">These are test deposits, not customer bounties. Their current state is always fetched afresh.</p>`;
-    for (const button of document.querySelectorAll('[data-example]')) button.addEventListener('click', () => { const item = examples[Number(button.dataset.example)]; $('#verify-listing').value = item.listing; $('#verify-sponsor').value = item.sponsor; verify(); });
+    renderLookupControls(lookup.busy);
+    for (const button of document.querySelectorAll('[data-example]')) button.addEventListener('click', () => { if (lookup.busy) return; const item = examples[Number(button.dataset.example)]; $('#verify-listing').value = item.listing; $('#verify-sponsor').value = item.sponsor; verify(); });
   }).catch(() => { /* Examples are optional; the verifier still works. */ });
 
 // Publication records must explicitly contain completed devnet evidence before

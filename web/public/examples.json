@@ -1,3 +1,19 @@
 {
-  "examples": []
+  "examples": [
+    {
+      "label": "Funded - 0.001 test SOL",
+      "listing": "https://github.com/EazyHood/escrowed/blob/main/examples/funded.md",
+      "sponsor": "3rfnzNgH7v2y9uoz2ExEmw3QLzpzD6TBpejLKo7pUeqv"
+    },
+    {
+      "label": "Awarded - 0.001 test SOL",
+      "listing": "https://github.com/EazyHood/escrowed/blob/main/examples/awarded.md",
+      "sponsor": "3rfnzNgH7v2y9uoz2ExEmw3QLzpzD6TBpejLKo7pUeqv"
+    },
+    {
+      "label": "Refunded - 0.001 test SOL",
+      "listing": "https://github.com/EazyHood/escrowed/blob/main/examples/refunded.md",
+      "sponsor": "3rfnzNgH7v2y9uoz2ExEmw3QLzpzD6TBpejLKo7pUeqv"
+    }
+  ]
 }

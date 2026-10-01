@@ -8,14 +8,14 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   PROGRAM_ID, DEVNET_RPC, DEVNET_GENESIS, ACCOUNT_SIZE,
-  createConnection, assertDevnet, getProgramState, deriveEscrow,
+  assertDevnet, getProgramState, deriveEscrow,
   inspectEscrow, createInstruction, awardInstruction, refundInstruction,
   prepareTransaction, sendPrepared, explorerAddress, explorerTransaction,
 } from '../web/src/lib/chain.js';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(resolve(repo, 'web/package.json'));
-const { Keypair, PublicKey, SystemProgram } = require('@solana/web3.js');
+const { Connection, Keypair, PublicKey, SystemProgram } = require('@solana/web3.js');
 const base58Module = require('bs58');
 const base58 = base58Module.default || base58Module;
 const flags = new Set(process.argv.slice(2));
@@ -63,7 +63,30 @@ if (!execute) {
 }
 
 assert(!flags.has('--plan'), 'Choose --plan or --execute-devnet, not both');
-const connection = createConnection();
+// The public RPC limits bursts and concurrent connections. Serialize this
+// evidence run, honor Retry-After, and retry only identical request bytes.
+// Signed transactions are journaled below before the first send; no new
+// transaction is signed by this transport retry.
+let requestQueue = Promise.resolve();
+let nextRequestAt = 0;
+function pacedFetch(input, init = {}) {
+  const request = requestQueue.then(async () => {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      await sleep(Math.max(0, nextRequestAt - Date.now()));
+      const response = await fetch(input, { ...init, signal: AbortSignal.timeout(20_000) });
+      nextRequestAt = Date.now() + 1400;
+      if (response.status !== 429 || attempt === 3) return response;
+      const retryAfter = response.headers.get('retry-after');
+      const seconds = Number(retryAfter);
+      const retryAt = retryAfter && Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Date.parse(retryAfter || '');
+      nextRequestAt = Math.max(nextRequestAt, Date.now() + 15000 * (attempt + 1), Number.isFinite(retryAt) ? retryAt : 0);
+      await response.arrayBuffer();
+    }
+  });
+  requestQueue = request.then(() => undefined, () => undefined);
+  return request;
+}
+const connection = new Connection(DEVNET_RPC, { commitment: 'confirmed', disableRetryOnRateLimit: true, fetch: pacedFetch });
 await assertDevnet(connection);
 assert.equal(await connection.getGenesisHash(), DEVNET_GENESIS);
 const program = await getProgramState(connection);
@@ -255,7 +278,7 @@ try {
   report.examples.push(snapshot(derived[2], refunded));
   report.finalSponsorLamports = await connection.getBalance(sponsor.publicKey, 'confirmed');
   report.grossOutflowBudgetUsedLamports = budgetUsed.toString(); report.maximumGrossOutflowLamports = totalOutflowLimit.toString();
-  report.status = 'confirmed'; report.completedAt = new Date().toISOString(); persist();
+  report.status = 'confirmed'; report.completedAt = new Date().toISOString(); delete report.lastError; persist();
   console.log(`All three states observed on devnet; public evidence saved to ${reportPath}`);
 } catch (error) {
   report.status = 'incomplete'; report.lastError = String(error.message || error); persist(); throw error;

@@ -1,8 +1,9 @@
 # Build, execution evidence and devnet deployment
 
-The October 1, 2026 build executes on a **local Solana validator**. Public
-devnet deployment is a separate step and must have its own transaction receipt.
-A compiled binary, local transaction or web build does not prove public deployment.
+The October 1, 2026 build is deployed on **Solana devnet** and has also executed
+on a local Solana validator. The [deployment report](artifacts/evidence/devnet-deployment.json)
+records the finalized transaction, program-data account and upgrade authority.
+The 219,680 deployed bytes match the reviewed SBF binary exactly.
 
 ## Reproduce the checks
 
@@ -70,13 +71,21 @@ users, real payouts or an independent security audit.
 
 ## Public devnet
 
+Deployment was finalized on October 1, 2026 at slot **506326792**:
+[view the transaction](https://explorer.solana.com/tx/2aDwhSpijTWYSD7tmBoJxUQFsR1G3xPTTRn8LcwF1g1JcyaVaU7nhErKnu4G7wcwxKFXxCYrjKFuaZV2RC2st2LS?cluster=devnet).
+The [public transaction evidence](artifacts/evidence/devnet-examples.json)
+records synthetic funded, awarded and refunded examples, including the actual
+recipient and sponsor balance changes. These are test tokens, not payments for
+real work. Use the example buttons in the [live app](https://eazyhood.github.io/escrowed/)
+to read their current state without connecting a wallet.
+
 The deployment uses the program ID
 `EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE` and test deployer
 `3rfnzNgH7v2y9uoz2ExEmw3QLzpzD6TBpejLKo7pUeqv`. The deployer is a separate
 test wallet, **not the grant payment wallet**. Both private key files stay
 outside this repository. Never publish them or put them in a browser bundle.
 
-Before deployment:
+Checklist for a future deployment:
 
 1. Confirm endpoint `https://api.devnet.solana.com` and genesis
    `EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG`.

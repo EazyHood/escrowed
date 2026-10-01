@@ -9,9 +9,13 @@ The listing stays on GitHub, Superteam or another site; there is no marketplace
 to migrate to.
 
 **This version is a devnet prototype. Devnet SOL is a free test asset with no
-monetary value. It is not an audited service for real funds.** Deployment status
-and test evidence belong in [`artifacts/`](artifacts/); a successful compilation
-by itself does not mean the program has been deployed.
+monetary value. It is not an audited service for real funds.**
+
+[Open the live app](https://eazyhood.github.io/escrowed/) and choose a recorded
+funded, awarded or refunded example. No wallet is required to verify it.
+[Deployment proof](artifacts/evidence/devnet-deployment.json) and
+[transaction evidence](artifacts/evidence/devnet-examples.json) include the
+confirmed signatures, deployed binary hash and observed balance changes.
 
 ## The useful distinction
 

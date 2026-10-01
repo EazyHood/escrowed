@@ -1,5 +1,5 @@
 {
-  "status": "pending",
+  "status": "verified",
   "programId": "EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE",
-  "evidence": null
+  "evidence": "https://github.com/EazyHood/escrowed/blob/main/artifacts/evidence/devnet-deployment.json"
 }

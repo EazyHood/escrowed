@@ -1,0 +1,22 @@
+{
+  "status": "confirmed",
+  "commitment": "finalized",
+  "network": "devnet",
+  "genesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "program": "EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE",
+  "programData": "JCsCbef596gfcRC9JpUuo2NKyyLq9d33hdLbHau5jFdm",
+  "authority": "3rfnzNgH7v2y9uoz2ExEmw3QLzpzD6TBpejLKo7pUeqv",
+  "upgradeable": true,
+  "signature": "2aDwhSpijTWYSD7tmBoJxUQFsR1G3xPTTRn8LcwF1g1JcyaVaU7nhErKnu4G7wcwxKFXxCYrjKFuaZV2RC2st2LS",
+  "slot": 506326792,
+  "binarySize": 219680,
+  "binarySha256": "9bff5f8120bf7dfff93b9472f3ce9cd9ee6e768f66b04a2ba82c05b0deb5da9b",
+  "deployedBinarySha256": "9bff5f8120bf7dfff93b9472f3ce9cd9ee6e768f66b04a2ba82c05b0deb5da9b",
+  "programDataPaddingBytes": 0,
+  "verifiedAt": "2026-10-01T16:02:08.469Z",
+  "explorer": "https://explorer.solana.com/tx/2aDwhSpijTWYSD7tmBoJxUQFsR1G3xPTTRn8LcwF1g1JcyaVaU7nhErKnu4G7wcwxKFXxCYrjKFuaZV2RC2st2LS?cluster=devnet",
+  "limitations": [
+    "Devnet test tokens only.",
+    "Upgradeable and unaudited; deployment does not guarantee future program behavior."
+  ]
+}

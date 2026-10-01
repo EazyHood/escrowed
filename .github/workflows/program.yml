@@ -19,42 +19,49 @@ jobs:
   sbf-and-local-validator:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    container: solanafoundation/anchor:v0.31.1@sha256:21ab8a16e19df4301a198d7a55ab2988549aa2d996e6b5ad229c1d95b9f2d326
     env:
-      # Restore the image home so Rust and the cached SBF platform tools resolve.
-      HOME: /root
-      CARGO_HOME: /root/.cargo
-      RUSTUP_HOME: /root/.rustup
+      ANCHOR_IMAGE: solanafoundation/anchor:v0.31.1@sha256:21ab8a16e19df4301a198d7a55ab2988549aa2d996e6b5ad229c1d95b9f2d326
+      CI_CONTAINER: escrowed-ci-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
-      - name: Record build environment
-        run: |
-          mkdir -p artifacts/evidence
-          {
-            date -u
-            git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD
-            rustc --version
-            cargo --version
-            solana --version
-            anchor --version
-          } > artifacts/evidence/toolchain.txt
-      - name: Build the locked SBF program
-        shell: bash
-        run: |
-          set -o pipefail
-          cd programs/escrowed
-          cargo build-sbf -- --locked 2>&1 | tee ../../artifacts/evidence/build-sbf.log
-      - name: Test the program and generate the IDL
-        shell: bash
-        run: |
-          set -o pipefail
-          cargo test --locked --manifest-path programs/escrowed/Cargo.toml 2>&1 | tee artifacts/evidence/program-tests.log
-          cargo run --locked --manifest-path scripts/chain-idl/Cargo.toml -- "$GITHUB_WORKSPACE" 2>&1 | tee artifacts/evidence/idl-build.log
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: web/package-lock.json
+      - name: Start the pinned build and test container
+        shell: bash
+        run: |
+          mkdir -p artifacts/evidence
+          # Keep Git and Node on the runner. Only compilation and the validator
+          # enter the image, at the same /work path used for the local build.
+          docker run --detach --name "$CI_CONTAINER" \
+            --publish 127.0.0.1:8899:8899 --publish 127.0.0.1:8900:8900 \
+            --mount "type=bind,source=$(pwd -P),target=/work" \
+            --workdir /work "$ANCHOR_IMAGE" tail -f /dev/null
+      - name: Record build environment
+        shell: bash
+        run: |
+          {
+            date -u
+            git rev-parse HEAD
+            docker image inspect "$ANCHOR_IMAGE" --format '{{index .RepoDigests 0}}'
+            docker exec "$CI_CONTAINER" bash -lc 'rustc --version && cargo --version && solana --version && anchor --version && cargo build-sbf --version'
+          } > artifacts/evidence/toolchain.txt
+      - name: Build the locked SBF program
+        shell: bash
+        run: |
+          set -o pipefail
+          docker exec "$CI_CONTAINER" bash -lc 'cd /work/programs/escrowed && cargo build-sbf -- --locked' \
+            2>&1 | tee artifacts/evidence/build-sbf.log
+      - name: Test the program and generate the IDL
+        shell: bash
+        run: |
+          set -o pipefail
+          docker exec "$CI_CONTAINER" bash -lc 'cargo test --locked --manifest-path /work/programs/escrowed/Cargo.toml' \
+            2>&1 | tee artifacts/evidence/program-tests.log
+          docker exec "$CI_CONTAINER" bash -lc 'cargo run --locked --manifest-path /work/scripts/chain-idl/Cargo.toml -- /work' \
+            2>&1 | tee artifacts/evidence/idl-build.log
       - name: Install the public test client dependencies
         run: npm ci --prefix web --no-audit --no-fund
       - name: Execute create, award, refund and rejected transactions locally
@@ -65,33 +72,36 @@ jobs:
           ESCROWED_CHAIN_REPORT: ${{ github.workspace }}/artifacts/evidence/local-validator.json
         run: |
           set -o pipefail
-          solana-test-validator \
-            --reset \
-            --ledger /tmp/escrowed-validator \
-            --bpf-program EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE programs/escrowed/target/deploy/escrowed.so \
-            > artifacts/evidence/local-validator.log 2>&1 &
-          VALIDATOR_PID=$!
-          trap 'kill "$VALIDATOR_PID" 2>/dev/null || true' EXIT
+          docker exec --detach "$CI_CONTAINER" bash -lc \
+            'exec solana-test-validator --reset --ledger /tmp/escrowed-validator --bpf-program EetC1jU5Zd686oKr7PuWG23Bfa6kjRuok2gCqxNZ5XPE /work/programs/escrowed/target/deploy/escrowed.so > /work/artifacts/evidence/local-validator.log 2>&1'
+          READY=false
           for attempt in $(seq 1 60); do
             if curl -fsS -X POST -H 'Content-Type: application/json' \
               --data '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' \
               http://127.0.0.1:8899 | grep -q '"ok"'; then
+              READY=true
               break
             fi
             sleep 1
           done
+          test "$READY" = true
           node scripts/chain-smoke.mjs 2>&1 | tee artifacts/evidence/chain-smoke.log
           node scripts/chain-export-local.mjs
       - name: Hash the public artifacts
         if: always()
         shell: bash
         run: |
+          mkdir -p artifacts/evidence
           {
-            git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD
+            git rev-parse HEAD
             sha256sum programs/escrowed/src/lib.rs programs/escrowed/Cargo.lock
             test ! -f programs/escrowed/target/deploy/escrowed.so || sha256sum programs/escrowed/target/deploy/escrowed.so
             test ! -f artifacts/idl/escrowed.json || sha256sum artifacts/idl/escrowed.json
           } > artifacts/evidence/hashes.txt
+      - name: Stop this run's temporary container
+        if: always()
+        shell: bash
+        run: docker rm --force "$CI_CONTAINER" || true
       - name: Save public build and runtime evidence
         if: always()
         uses: actions/upload-artifact@v4

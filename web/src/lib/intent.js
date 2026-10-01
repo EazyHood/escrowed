@@ -1,6 +1,6 @@
 export class IntentChangedError extends Error {
   constructor() {
-    super('The form, wallet or selected escrow changed. This preparation was cancelled before broadcast. Review the current details again.');
+    super('The form, wallet or selected escrow changed. This preparation was discarded before broadcast. Review the current details again.');
     this.name = 'IntentChangedError';
   }
 }
